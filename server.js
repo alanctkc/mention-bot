@@ -59,7 +59,7 @@ app.post('/', function(req, res) {
     }
 
     var reviewers = mentionBot.guessOwnersForPullRequest(
-      data.repository.html_url, // 'https://github.com/fbsamples/bot-testing'
+      data.repository.url, // 'https://api.github.com/repos/fbsamples/bot-testing'
       data.pull_request.number // 23
     );
 

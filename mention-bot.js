@@ -9,7 +9,6 @@
  * @flow
  */
 
-var downloadFileSync = require('download-file-sync');
 var fs = require('fs');
 
 type FileInfo = {
@@ -19,6 +18,16 @@ type FileInfo = {
 
 function startsWith(str, start) {
   return str.substr(0, start.length) === start;
+}
+
+function downloadFileSync(url, accept) {
+  var curlOptions = ['-L', url, '-H', 'Accept: ' + accept];
+  var token = process.env.GITHUB_TOKEN;
+  if (token) {
+    Array.prototype.push.apply(curlOptions, ['-H', 'Authorization: token ' + token]);
+  }
+  return require('child_process')
+    .execFileSync('curl', curlOptions, {encoding: 'utf8'});
 }
 
 function parseDiffFile(lines: Array<string>): FileInfo {
@@ -214,9 +223,9 @@ function getSortedOwners(
  * much slower, it's also going to temporary/permanently ban your ip and
  * you won't be able to get anymore work done when it happens :(
  */
-function fetch(url: string): string {
+function fetch(url: string, accept: sring): string {
   if (!module.exports.enableCachingForDebugging) {
-    return downloadFileSync(url);
+    return downloadFileSync(url, accept);
   }
 
   var cacheDir = __dirname + '/cache/';
@@ -226,7 +235,7 @@ function fetch(url: string): string {
   }
   var cache_key = cacheDir + url.replace(/[^a-zA-Z0-9-_\.]/g, '-');
   if (!fs.existsSync(cache_key)) {
-    var file = downloadFileSync(url);
+    var file = downloadFileSync(url, accept);
     fs.writeFileSync(cache_key, file);
   }
   return fs.readFileSync(cache_key, 'utf8');
@@ -281,10 +290,10 @@ function guessOwners(
 }
 
 function guessOwnersForPullRequest(
-  repoURL: string,
+  repoAPIURL: string,
   id: number
 ): Array<string> {
-  var diff = fetch(repoURL + '/pull/' + id + '.diff');
+  var diff = fetch(repoAPIURL + '/pulls/' + id, 'application/vnd.github.VERSION.diff');
   var files = parseDiff(diff);
 
   // There are going to be degenerated changes that end up modifying hundreds
@@ -302,7 +311,7 @@ function guessOwnersForPullRequest(
   var blames = {};
   files.forEach(function(file) {
     var path = file.path;
-    var blame = fetch(repoURL + '/blame/master/' + path);
+    var blame = fetch(repoAPIURL + '/blame/master/' + path, 'some/content.type.here');
     blames[path] = parseBlame(blame);
   });
 
